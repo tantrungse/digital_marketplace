@@ -8,6 +8,7 @@ services:
       - "4000:4000"
     volumes:
       - .:/usr/src/app
+      # - ./config/master.key:/usr/src/app/config/master.key
       # - gem_cache:/gems
     env_file:
       - .env/development/web
@@ -21,7 +22,7 @@ services:
     volumes:
       - db_data:/var/lib/postgresql/data
   selenium_chrome:
-    image: selenium/standalone-chrome:latest
+    image: selenium/standalone-chrome-debug
     logging:
       driver: none
     ports:
