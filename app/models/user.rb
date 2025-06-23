@@ -8,4 +8,16 @@ class User < ApplicationRecord
          :jwt_authenticatable, jwt_revocation_strategy: self
 
   has_and_belongs_to_many :roles
+
+  def admin?
+    roles.pluck(:name).include?("admin")
+  end
+
+  def buyer?
+    roles.pluck(:name).include?("buyer")
+  end
+
+  def seller?
+    roles.pluck(:name).include?("seller")
+  end
 end

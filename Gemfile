@@ -31,6 +31,8 @@ gem 'devise'
 gem 'devise-jwt'
 gem 'jsonapi-serializer'
 
+gem "pundit", "~> 2.5"
+
 group :development, :test do
   # See https://guides.rubyonrails.org/debugging_rails_applications.html#debugging-with-the-debug-gem
   gem "debug", platforms: %i[ mri windows ], require: "debug/prelude"
@@ -40,6 +42,16 @@ group :development, :test do
 
   # Omakase Ruby styling [https://github.com/rails/rubocop-rails-omakase/]
   gem "rubocop-rails-omakase", require: false
+
+  gem "rspec-rails", "~> 7.1.1"
+
+  gem 'capybara'
+
+  gem 'selenium-webdriver', '~> 4.32'
+
+  gem 'byebug'
+
+  gem 'faker', '~> 3.5', '>= 3.5.1'
+
+  gem 'factory_bot', '~> 6.4', '>= 6.4.6'
 end
-
-
