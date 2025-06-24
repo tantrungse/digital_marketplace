@@ -1,70 +1,60 @@
 require 'faker'
 Rails.application.eager_load!
 
-puts "Seeding started..."
+puts "🚀 Blazing fast seeding started..."
 
-# --- Delete old data ---
+# Clean up dependent tables
 Purchase.delete_all
 Order.delete_all
 AssetTag.delete_all
 Asset.delete_all
 Tag.delete_all
 Category.delete_all
-User.all.each { |u| u.roles.clear } # clean roles for existing users
 
-# (optional cleanup if you want)
-# Role.delete_all
-# User.delete_all
+# Optional: clean roles and users if you want
+Role.delete_all
+User.delete_all
 
-# === Create Roles ===
-roles = %w[buyer seller]
-roles.each { |role| Role.find_or_create_by!(name: role) }
+# --- Roles ---
+%w[buyer seller].each { |role| Role.find_or_create_by!(name: role) }
 
-# === Create Buyers and Sellers ===
-buyers = 5.times.map do
+# --- Buyers ---
+buyers = []
+5.times do
   user = User.create!(
     email: Faker::Internet.unique.email,
     password: 'password',
     first_name: Faker::Name.first_name,
     last_name: Faker::Name.last_name
   )
-  user.roles << Role.find_by(name: "buyer")
-  user
+  user.roles << Role.find_by(name: 'buyer')
+  buyers << user
 end
 
-sellers = 5.times.map do
+# --- Sellers ---
+sellers = []
+5.times do
   user = User.create!(
     email: Faker::Internet.unique.email,
     password: 'password',
     first_name: Faker::Name.first_name,
     last_name: Faker::Name.last_name
   )
-  user.roles << Role.find_by(name: "seller")
-  user
+  user.roles << Role.find_by(name: 'seller')
+  sellers << user
 end
 
-# === Create Categories ===
-category_names = %w[video audio photo]
-categories = {}
-category_names.each do |name|
-  categories[name] = Category.create!(
-    name: name,
-    description: Faker::Lorem.sentence
-  )
+# --- Categories ---
+categories = %w[video audio photo].map do |name|
+  Category.create!(name: name, description: Faker::Lorem.sentence)
 end
 
-# === Create Tags & Assets ===
+# --- Tags and Assets ---
 assets = []
 
-category_names.each do |category_name|
-  category = categories[category_name]
-
+categories.each do |category|
   20.times do |i|
-    tag = Tag.create!(
-      name: "#{category_name}_tag_#{i + 1}",
-      description: Faker::Lorem.sentence,
-      category: category
-    )
+    tag = Tag.create!(name: "#{category.name}_tag_#{i+1}", description: Faker::Lorem.sentence, category: category)
 
     5.times do
       seller = sellers.sample
@@ -75,56 +65,34 @@ category_names.each do |category_name|
         price: Faker::Commerce.price(range: 5..100),
         status: 'active'
       )
-
-      AssetTag.create!(asset_id: asset.id, tag_id: tag.id)
+      AssetTag.create!(asset: asset, tag: tag)
       assets << asset
     end
   end
 end
 
-puts "Created #{category_names.size} categories, #{category_names.size * 20} tags and #{assets.count} assets"
+puts "✅ Created categories, tags, and #{assets.size} assets."
 
-# === Seed some small test orders first ===
-buyers.sample(2).each do |buyer|
-  3.times do
-    asset = assets.sample
-    order = Order.create!(
-      invoice_id: SecureRandom.hex(5),
-      order_date: Faker::Date.between(from: 3.years.ago, to: Date.today),
-      total_price: asset.price,
-      user: buyer
-    )
-    Purchase.create!(
-      price: asset.price,
-      download_url: Faker::Internet.url,
-      asset: asset,
-      order: order
-    )
-  end
-end
-
-puts "Initial test orders created"
-
-# === Massive Order + Purchase generation ===
-
-puts "Seeding 15 million purchases..."
+# 🔥 Blazing-fast mass seeding of Orders and Purchases
 
 total_purchases = 15_000_000
-batch_size = 10_000
+batch_size = 25_000 # we go very big here
 purchases_generated = 0
 start_date = 5.years.ago
 now = Time.now
 batch_index = 0
 
+puts "🚀 Seeding #{total_purchases} purchases in batches of #{batch_size}..."
+
 while purchases_generated < total_purchases
   orders_data = []
-  order_items_data = []
+  purchases_data = []
 
-  # Estimate orders count for this batch
-  approx_orders_count = (batch_size / 3.0).ceil
+  # Precompute orders fully in memory
+  batch_orders = (batch_size / 3.0).ceil
+  order_ids_placeholder = []
 
-  # Create orders
-  approx_orders_count.times do
+  batch_orders.times do
     buyer = buyers.sample
     order_created_at = Faker::Time.between(from: start_date, to: now)
     orders_data << {
@@ -137,35 +105,35 @@ while purchases_generated < total_purchases
     }
   end
 
-  # Bulk insert orders
-  inserted_orders = Order.insert_all!(orders_data).rows.flatten
+  inserted_orders = Order.insert_all!(orders_data, returning: %w[id])
+  inserted_order_ids = inserted_orders.rows.flatten
 
-  inserted_orders.each do |order_id|
+  # Precompute purchases fully in memory
+  inserted_order_ids.each_with_index do |order_id, index|
     item_count = rand(1..5)
     break if purchases_generated + item_count > total_purchases
 
-    # All purchases for this order get same created_at as order
-    order_created_at = orders_data.find { |o| o[:user_id] == Order.find(order_id).user_id }[:created_at]
+    order_date = orders_data[index][:order_date]
 
     item_count.times do
       asset = assets.sample
-      order_items_data << {
+      purchases_data << {
         price: asset.price,
         download_url: Faker::Internet.url,
         asset_id: asset.id,
         order_id: order_id,
-        created_at: order_created_at,
-        updated_at: order_created_at
+        created_at: order_date,
+        updated_at: order_date
       }
     end
 
     purchases_generated += item_count
   end
 
-  Purchase.insert_all!(order_items_data)
+  Purchase.insert_all!(purchases_data)
 
   batch_index += 1
-  puts "Batch #{batch_index} completed: #{purchases_generated}/#{total_purchases} purchases created"
+  puts "✅ Batch #{batch_index}: #{purchases_generated}/#{total_purchases} purchases created"
 end
 
-puts "✅ Seeding completed!"
+puts "✅ Blazing fast seeding completed!"
