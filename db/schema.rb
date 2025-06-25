@@ -10,7 +10,7 @@
 #
 # It's strongly recommended that you check this file into your version control system.
 
-ActiveRecord::Schema[7.2].define(version: 2025_06_24_082539) do
+ActiveRecord::Schema[7.2].define(version: 2025_06_25_100910) do
   # These are extensions that must be enabled in order to support this database
   enable_extension "plpgsql"
 
@@ -119,4 +119,40 @@ ActiveRecord::Schema[7.2].define(version: 2025_06_24_082539) do
   end
 
   add_foreign_key "tags", "categories"
+
+  create_view "buyer_daily_spends", sql_definition: <<-SQL
+      SELECT date(orders.created_at) AS spend_date,
+      orders.user_id AS buyer_id,
+      sum(purchases.price) AS total_spent,
+      tags.id AS tag_id,
+      categories.id AS category_id
+     FROM (((((orders
+       JOIN purchases ON ((purchases.order_id = orders.id)))
+       JOIN assets ON ((purchases.asset_id = assets.id)))
+       LEFT JOIN asset_tags ON ((asset_tags.asset_id = assets.id)))
+       LEFT JOIN tags ON ((tags.id = asset_tags.tag_id)))
+       LEFT JOIN categories ON ((categories.id = tags.category_id)))
+    GROUP BY (date(orders.created_at)), orders.user_id, tags.id, categories.id
+    ORDER BY (date(orders.created_at)), orders.user_id;
+  SQL
+  create_view "buyer_weekly_spends", sql_definition: <<-SQL
+      SELECT (date_trunc('week'::text, (spend_date)::timestamp with time zone))::date AS week_start,
+      buyer_id,
+      tag_id,
+      category_id,
+      sum(total_spent) AS total_spent
+     FROM buyer_daily_spends
+    GROUP BY (date_trunc('week'::text, (spend_date)::timestamp with time zone)), buyer_id, tag_id, category_id
+    ORDER BY ((date_trunc('week'::text, (spend_date)::timestamp with time zone))::date), buyer_id;
+  SQL
+  create_view "buyer_monthly_spends", sql_definition: <<-SQL
+      SELECT (date_trunc('month'::text, (spend_date)::timestamp with time zone))::date AS month,
+      buyer_id,
+      tag_id,
+      category_id,
+      sum(total_spent) AS total_spent
+     FROM buyer_daily_spends
+    GROUP BY (date_trunc('month'::text, (spend_date)::timestamp with time zone)), buyer_id, tag_id, category_id
+    ORDER BY ((date_trunc('month'::text, (spend_date)::timestamp with time zone))::date), buyer_id;
+  SQL
 end
