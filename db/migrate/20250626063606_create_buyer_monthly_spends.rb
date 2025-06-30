@@ -1,5 +1,5 @@
 class CreateBuyerMonthlySpends < ActiveRecord::Migration[7.2]
   def change
-    create_view :buyer_monthly_spends
+    create_view :buyer_monthly_spends, materialized: true
   end
 end

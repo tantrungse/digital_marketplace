@@ -10,7 +10,7 @@
 #
 # It's strongly recommended that you check this file into your version control system.
 
-ActiveRecord::Schema[7.2].define(version: 2025_06_25_100910) do
+ActiveRecord::Schema[7.2].define(version: 2025_06_26_063617) do
   # These are extensions that must be enabled in order to support this database
   enable_extension "plpgsql"
 
@@ -120,7 +120,7 @@ ActiveRecord::Schema[7.2].define(version: 2025_06_25_100910) do
 
   add_foreign_key "tags", "categories"
 
-  create_view "buyer_daily_spends", sql_definition: <<-SQL
+  create_view "buyer_daily_spends", materialized: true, sql_definition: <<-SQL
       SELECT date(orders.created_at) AS spend_date,
       orders.user_id AS buyer_id,
       sum(purchases.price) AS total_spent,
@@ -135,7 +135,7 @@ ActiveRecord::Schema[7.2].define(version: 2025_06_25_100910) do
     GROUP BY (date(orders.created_at)), orders.user_id, tags.id, categories.id
     ORDER BY (date(orders.created_at)), orders.user_id;
   SQL
-  create_view "buyer_weekly_spends", sql_definition: <<-SQL
+  create_view "buyer_weekly_spends", materialized: true, sql_definition: <<-SQL
       SELECT (date_trunc('week'::text, (spend_date)::timestamp with time zone))::date AS week_start,
       buyer_id,
       tag_id,
@@ -145,7 +145,7 @@ ActiveRecord::Schema[7.2].define(version: 2025_06_25_100910) do
     GROUP BY (date_trunc('week'::text, (spend_date)::timestamp with time zone)), buyer_id, tag_id, category_id
     ORDER BY ((date_trunc('week'::text, (spend_date)::timestamp with time zone))::date), buyer_id;
   SQL
-  create_view "buyer_monthly_spends", sql_definition: <<-SQL
+  create_view "buyer_monthly_spends", materialized: true, sql_definition: <<-SQL
       SELECT (date_trunc('month'::text, (spend_date)::timestamp with time zone))::date AS month,
       buyer_id,
       tag_id,
@@ -154,5 +154,15 @@ ActiveRecord::Schema[7.2].define(version: 2025_06_25_100910) do
      FROM buyer_daily_spends
     GROUP BY (date_trunc('month'::text, (spend_date)::timestamp with time zone)), buyer_id, tag_id, category_id
     ORDER BY ((date_trunc('month'::text, (spend_date)::timestamp with time zone))::date), buyer_id;
+  SQL
+  create_view "buyer_yearly_spends", materialized: true, sql_definition: <<-SQL
+      SELECT (date_trunc('year'::text, (month)::timestamp with time zone))::date AS year_start,
+      buyer_id,
+      tag_id,
+      category_id,
+      sum(total_spent) AS total_spent
+     FROM buyer_monthly_spends
+    GROUP BY (date_trunc('year'::text, (month)::timestamp with time zone)), buyer_id, tag_id, category_id
+    ORDER BY ((date_trunc('year'::text, (month)::timestamp with time zone))::date), buyer_id;
   SQL
 end

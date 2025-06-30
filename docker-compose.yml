@@ -8,7 +8,6 @@ services:
       - "4000:4000"
     volumes:
       - .:/usr/src/app
-      # - ./config/master.key:/usr/src/app/config/master.key
       # - gem_cache:/gems
     env_file:
       - .env/development/web
@@ -17,6 +16,8 @@ services:
     image: redis
   database:
     image: postgres
+    ports:
+      - "5433:5432"
     env_file:
       - .env/development/database
     volumes:

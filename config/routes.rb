@@ -21,6 +21,7 @@ Rails.application.routes.draw do
   namespace :api do
     namespace :v1 do
       namespace :buyer do
+        get 'spending', to: 'spend#index'
         resources :products do
           collection do
             get :browse
